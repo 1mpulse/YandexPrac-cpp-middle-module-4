@@ -32,13 +32,16 @@ MetricResult::ValueType CyclomaticComplexityMetric::CalculateImpl(const function
     // - case в match-выражениях
     // - assert
     // - тернарный оператор (conditional_expression)
-    constexpr std::array<std::string_view, 9> complexity_nodes = {
+    constexpr std::array<std::string_view, 12> complexity_nodes = {
         "if_statement",            // if
         "elif_statement",          // elif
+        "else_clause",             // else
         "for_statement",           // for
         "while_statement",         // while
         "try_statement",           // try
+        "except_clause",           // catch / except
         "finally_clause",          // finally
+        "match_statement",         // match
         "case_clause",             // case
         "assert",                  // assert
         "conditional_expression",  // для тернарного оператора
@@ -65,5 +68,18 @@ MetricResult::ValueType CyclomaticComplexityMetric::CalculateImpl(const function
     // в цикле (это допустимо, так как вы работаете со строковым представлением AST,
     // а не с исходным кодом напрямую).
 
+    int complexity = 1;
+
+    for (const auto& node_name : complexity_nodes)
+    {
+        size_t pos = 0;
+        while ((pos = function_ast.find(node_name, pos)) != std::string::npos)
+        {
+            ++complexity;
+            pos += node_name.size();
+        }
+    }
+
+    return complexity;
 }
 }  // namespace analyzer::metric::metric_impl
