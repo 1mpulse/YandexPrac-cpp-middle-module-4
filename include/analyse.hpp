@@ -111,7 +111,7 @@ auto SplitByClasses(const auto &analysis) {
         std::vector<AnalysisElement> &last_group = result.back();
         const auto &last_element = last_group.back();
 
-        if (st.class_name == current_element.first.class_name)
+        if (last_element.first.class_name == current_element.first.class_name)
         {
             last_group.push_back(current_element);
         }
