@@ -40,7 +40,36 @@ namespace rs = std::ranges;
  */
 auto AnalyseFunctions(const std::vector<std::string> &files,
                       const analyzer::metric::MetricExtractor &metric_extractor) {
-    // здесь ваш код
+    std::vector<file::File> parsed_files;
+    parsed_files.reserve(files.size());
+
+    for (const auto &filename : files)
+    {
+        parsed_files.emplace_back(filename);
+    }
+
+    function::FunctionExtractor function_extractor;
+    std::vector<function::Function> all_functions;
+
+    for (const file::File &current_file : parsed_files)
+    {
+        const auto file_functions = function_extractor.Get(current_file);
+        for (const auto &current_function : file_functions)
+        {
+            all_functions.push_back(current_function);
+        }
+    }
+
+    std::vector<std::pair<function::Function, metric::MetricResults>> analysis;
+    analysis.reserve(all_functions.size());
+
+    for (const function::Function &current_function : all_functions)
+    {
+        metric::MetricResults metric_results = metric_extractor.Get(current_function);
+        analysis.emplace_back(current_function, metric_results);
+    }
+
+    return analysis;
 }
 
 /**
@@ -62,7 +91,37 @@ auto AnalyseFunctions(const std::vector<std::string> &files,
  * действительно исчезают из результата.
  */
 auto SplitByClasses(const auto &analysis) {
-    // здесь ваш код
+    using AnalysisElement = std::pair<function::Function, metric::MetricResults>;
+
+    std::vector<std::vector<AnalysisElement>> result;
+
+    for (const auto &current_element : analysis)
+    {
+        if (!current_element.first.class_name.has_value())
+        {
+            continue;
+        }
+
+        if (result.empty())
+        {
+            result.push_back({current_element});
+            continue;
+        }
+
+        std::vector<AnalysisElement> &last_group = result.back();
+        const auto &last_element = last_group.back();
+
+        if (st.class_name == current_element.first.class_name)
+        {
+            last_group.push_back(current_element);
+        }
+        else
+        {
+            result.push_back({current_element});
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -74,7 +133,32 @@ auto SplitByClasses(const auto &analysis) {
  * - Использует `chunk_by`, поэтому **порядок функций в `analysis` должен быть по файлам**.
  */
 auto SplitByFiles(const auto &analysis) {
-    // здесь ваш код
+    using AnalysisElement = std::pair<function::Function, metric::MetricResults>;
+
+    std::vector<std::vector<AnalysisElement>> result;
+
+    for (const auto &current_element : analysis)
+    {
+        if (result.empty())
+        {
+            result.push_back({current_element});
+            continue;
+        }
+
+        std::vector<AnalysisElement> &last_group = result.back();
+        const auto &last_element = last_group.back();
+
+        if (last_element.first.filename == current_element.first.filename)
+        {
+            last_group.push_back(current_element);
+        }
+        else
+        {
+            result.push_back({current_element});
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -87,7 +171,10 @@ auto SplitByFiles(const auto &analysis) {
  */
 void AccumulateFunctionAnalysis(const auto &analysis,
                                 const analyzer::metric_accumulator::MetricsAccumulator &accumulator) {
-    // здесь ваш код
+    for (const auto &current_element : analysis)
+    {
+        accumulator.AccumulateNextFunctionResults(current_element.second);
+    }
 }
 
 }  // namespace analyzer
