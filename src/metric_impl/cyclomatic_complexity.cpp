@@ -69,8 +69,7 @@ MetricResult::ValueType CyclomaticComplexityMetric::CalculateImpl(const function
     // а не с исходным кодом напрямую).
 
     int complexity = 1;
-
-    for (const auto& node_name : complexity_nodes)
+    std::ranges::for_each(complexity_nodes, [&](const auto &node_name)
     {
         size_t pos = 0;
         while ((pos = function_ast.find(node_name, pos)) != std::string::npos)
@@ -78,7 +77,7 @@ MetricResult::ValueType CyclomaticComplexityMetric::CalculateImpl(const function
             ++complexity;
             pos += node_name.size();
         }
-    }
+    });
 
     return complexity;
 }

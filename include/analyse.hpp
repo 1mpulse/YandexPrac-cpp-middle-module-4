@@ -40,36 +40,21 @@ namespace rs = std::ranges;
  */
 auto AnalyseFunctions(const std::vector<std::string> &files,
                       const analyzer::metric::MetricExtractor &metric_extractor) {
-    std::vector<file::File> parsed_files;
-    parsed_files.reserve(files.size());
-
-    for (const auto &filename : files)
-    {
-        parsed_files.emplace_back(filename);
-    }
+    auto parsed_files = files |
+                        rv::transform([](const auto &filename) { return file::File{filename}; }) |
+                        rs::to<std::vector>();
 
     function::FunctionExtractor function_extractor;
-    std::vector<function::Function> all_functions;
+    auto all_functions = parsed_files |
+                         rv::transform([&](const auto &current_file) { return function_extractor.Get(current_file); }) |
+                         rv::join |
+                         rs::to<std::vector>();
 
-    for (const file::File &current_file : parsed_files)
-    {
-        const auto file_functions = function_extractor.Get(current_file);
-        for (const auto &current_function : file_functions)
-        {
-            all_functions.push_back(current_function);
-        }
-    }
-
-    std::vector<std::pair<function::Function, metric::MetricResults>> analysis;
-    analysis.reserve(all_functions.size());
-
-    for (const function::Function &current_function : all_functions)
-    {
-        metric::MetricResults metric_results = metric_extractor.Get(current_function);
-        analysis.emplace_back(current_function, metric_results);
-    }
-
-    return analysis;
+    return all_functions |
+           rv::transform([&](const function::Function &current_function) {
+               return std::pair{current_function, metric_extractor.Get(current_function)};
+           }) |
+           rs::to<std::vector>();
 }
 
 /**
@@ -93,35 +78,16 @@ auto AnalyseFunctions(const std::vector<std::string> &files,
 auto SplitByClasses(const auto &analysis) {
     using AnalysisElement = std::pair<function::Function, metric::MetricResults>;
 
-    std::vector<std::vector<AnalysisElement>> result;
-
-    for (const auto &current_element : analysis)
-    {
-        if (!current_element.first.class_name.has_value())
+    return analysis | rv::filter([](const AnalysisElement &current_element)
         {
-            continue;
-        }
-
-        if (result.empty())
+            return current_element.first.class_name.has_value();
+        }) |
+        rv::chunk_by([](const AnalysisElement &lhs, const AnalysisElement &rhs)
         {
-            result.push_back({current_element});
-            continue;
-        }
-
-        std::vector<AnalysisElement> &last_group = result.back();
-        const auto &last_element = last_group.back();
-
-        if (last_element.first.class_name == current_element.first.class_name)
-        {
-            last_group.push_back(current_element);
-        }
-        else
-        {
-            result.push_back({current_element});
-        }
-    }
-
-    return result;
+            return lhs.first.class_name == rhs.first.class_name;
+        }) |
+        rv::transform([](auto &&group) { return rs::to<std::vector<AnalysisElement>>(group); }) |
+        rs::to<std::vector>();
 }
 
 /**
@@ -134,31 +100,13 @@ auto SplitByClasses(const auto &analysis) {
  */
 auto SplitByFiles(const auto &analysis) {
     using AnalysisElement = std::pair<function::Function, metric::MetricResults>;
-
-    std::vector<std::vector<AnalysisElement>> result;
-
-    for (const auto &current_element : analysis)
-    {
-        if (result.empty())
-        {
-            result.push_back({current_element});
-            continue;
-        }
-
-        std::vector<AnalysisElement> &last_group = result.back();
-        const auto &last_element = last_group.back();
-
-        if (last_element.first.filename == current_element.first.filename)
-        {
-            last_group.push_back(current_element);
-        }
-        else
-        {
-            result.push_back({current_element});
-        }
-    }
-
-    return result;
+    return analysis |
+       rv::chunk_by([](const AnalysisElement &lhs, const AnalysisElement &rhs)
+       {
+           return lhs.first.filename == rhs.first.filename;
+       }) |
+       rv::transform([](auto &&group) { return rs::to<std::vector<AnalysisElement>>(group); }) |
+       rs::to<std::vector>();
 }
 
 /**
@@ -171,10 +119,10 @@ auto SplitByFiles(const auto &analysis) {
  */
 void AccumulateFunctionAnalysis(const auto &analysis,
                                 const analyzer::metric_accumulator::MetricsAccumulator &accumulator) {
-    for (const auto &current_element : analysis)
+    std::ranges::for_each(analysis, [&](const auto &current_element)
     {
         accumulator.AccumulateNextFunctionResults(current_element.second);
-    }
+    });
 }
 
 }  // namespace analyzer
