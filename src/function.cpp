@@ -172,4 +172,18 @@ std::string FunctionExtractor::GetClassNameFromSource(const ClassInfo &class_inf
     return class_line.substr(name_start, name_end - name_start);
 }
 
+Function LoadFirstFunctionFromFile(const std::string &filename)
+{
+    file::File file(filename);
+    FunctionExtractor extractor;
+    std::vector<Function> functions = extractor.Get(file);
+
+    if (functions.empty())
+    {
+        throw std::runtime_error("No functions found in file '" + filename + "'");
+    }
+
+    return functions.front();
+}
+
 }  // namespace analyzer::function
