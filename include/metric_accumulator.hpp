@@ -13,7 +13,9 @@
 #include <iostream>
 #include <ranges>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 

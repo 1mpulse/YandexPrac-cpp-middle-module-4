@@ -58,4 +58,6 @@ private:
     std::string GetClassNameFromSource(const ClassInfo &class_info, const std::vector<std::string> &lines);
 };
 
+Function LoadFirstFunctionFromFile(const std::string &filename);
+
 }  // namespace analyzer::function

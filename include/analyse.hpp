@@ -40,7 +40,21 @@ namespace rs = std::ranges;
  */
 auto AnalyseFunctions(const std::vector<std::string> &files,
                       const analyzer::metric::MetricExtractor &metric_extractor) {
-    // здесь ваш код
+    auto parsed_files = files |
+                        rv::transform([](const auto &filename) { return file::File{filename}; }) |
+                        rs::to<std::vector>();
+
+    function::FunctionExtractor function_extractor;
+    auto all_functions = parsed_files |
+                         rv::transform([&](const auto &current_file) { return function_extractor.Get(current_file); }) |
+                         rv::join |
+                         rs::to<std::vector>();
+
+    return all_functions |
+           rv::transform([&](const function::Function &current_function) {
+               return std::pair{current_function, metric_extractor.Get(current_function)};
+           }) |
+           rs::to<std::vector>();
 }
 
 /**
@@ -62,7 +76,18 @@ auto AnalyseFunctions(const std::vector<std::string> &files,
  * действительно исчезают из результата.
  */
 auto SplitByClasses(const auto &analysis) {
-    // здесь ваш код
+    using AnalysisElement = std::pair<function::Function, metric::MetricResults>;
+
+    return analysis | rv::filter([](const AnalysisElement &current_element)
+        {
+            return current_element.first.class_name.has_value();
+        }) |
+        rv::chunk_by([](const AnalysisElement &lhs, const AnalysisElement &rhs)
+        {
+            return lhs.first.class_name == rhs.first.class_name;
+        }) |
+        rv::transform([](auto &&group) { return rs::to<std::vector<AnalysisElement>>(group); }) |
+        rs::to<std::vector>();
 }
 
 /**
@@ -74,7 +99,14 @@ auto SplitByClasses(const auto &analysis) {
  * - Использует `chunk_by`, поэтому **порядок функций в `analysis` должен быть по файлам**.
  */
 auto SplitByFiles(const auto &analysis) {
-    // здесь ваш код
+    using AnalysisElement = std::pair<function::Function, metric::MetricResults>;
+    return analysis |
+       rv::chunk_by([](const AnalysisElement &lhs, const AnalysisElement &rhs)
+       {
+           return lhs.first.filename == rhs.first.filename;
+       }) |
+       rv::transform([](auto &&group) { return rs::to<std::vector<AnalysisElement>>(group); }) |
+       rs::to<std::vector>();
 }
 
 /**
@@ -87,7 +119,10 @@ auto SplitByFiles(const auto &analysis) {
  */
 void AccumulateFunctionAnalysis(const auto &analysis,
                                 const analyzer::metric_accumulator::MetricsAccumulator &accumulator) {
-    // здесь ваш код
+    std::ranges::for_each(analysis, [&](const auto &current_element)
+    {
+        accumulator.AccumulateNextFunctionResults(current_element.second);
+    });
 }
 
 }  // namespace analyzer
